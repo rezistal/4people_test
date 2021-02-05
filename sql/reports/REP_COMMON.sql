@@ -41,6 +41,8 @@ REP_COMMON:BEGIN
      OR O.DT BETWEEN vDATE_TO + INTERVAL 1 DAY AND iDATETIME_TO
      ;
   CREATE INDEX idx_tt_operations_packs ON tt_operations_packs(PACK_NUM);
+  CREATE INDEX idx_tt_operations_packs_type_oper ON tt_operations_packs(ID_TYPE_OPER);
+  CREATE INDEX idx_tt_operations_packs_user ON tt_operations_packs(ID_USER);
 
   UPDATE tt_operations_packs
   SET PACK_NUM = (ID_NUM DIV vOPERATIONS_IN_PACK) + 1;
@@ -87,8 +89,8 @@ REP_COMMON:BEGIN
     WHERE O.PACK_NUM = vCURRENT_PACK
     GROUP BY C.ID_COUNTRY, OT.ID_TYPE_OPER
     ;
-    
-    INSERT INTO tt_prepare_report 
+
+    INSERT INTO tt_prepare_report
     (
       NAME_COUNTRY,
       NAME_OPER,
@@ -116,26 +118,26 @@ REP_COMMON:BEGIN
   END WHILE;
   CLOSE curpack;
 
-  -- INSERT INTO tt_prepare_report
-  -- SELECT C.NAME_COUNTRY,
-  --        OT.NAME_OPER,
-  --        CRC.TOTAL,
-  --        CRC.TOTAL_DBT,
-  --        CRC.TOTAL_KRD,
-  --        CRC.TOTAL_COMMISSION,
-  --        CRC.TOTAL_ITOG,
-  --        CRC.TOTAL_ITOG_DBT,
-  --        CRC.TOTAL_ITOG_KRD
-  -- FROM work.common_report_consolidation CRC
-  -- JOIN work.countries       C ON C.ID_COUNTRY = CRC.ID_COUNTRY
-  -- JOIN work.type_opers     OT ON OT.ID_TYPE_OPER = CRC.ID_TYPE_OPER
-  -- WHERE CRC.REPORT_DATE BETWEEN vDATE_FROM AND vDATE_TO;
-  
+  INSERT INTO tt_prepare_report
+  SELECT C.NAME_COUNTRY,
+         OT.NAME_OPER,
+         CRC.TOTAL,
+         CRC.TOTAL_DBT,
+         CRC.TOTAL_KRD,
+         CRC.TOTAL_COMMISSION,
+         CRC.TOTAL_ITOG,
+         CRC.TOTAL_ITOG_DBT,
+         CRC.TOTAL_ITOG_KRD
+  FROM work.common_report_consolidation CRC
+  JOIN work.countries       C ON C.ID_COUNTRY = CRC.ID_COUNTRY
+  JOIN work.type_opers     OT ON OT.ID_TYPE_OPER = CRC.ID_TYPE_OPER
+  WHERE CRC.REPORT_DATE BETWEEN vDATE_FROM AND vDATE_TO;
+
   DROP TEMPORARY TABLE IF EXISTS tt_report;
   CREATE TEMPORARY TABLE tt_report AS
   SELECT IF(T.NAME_COUNTRY IS NULL,
             'Total for all countries:',
-             IF(T.NAME_OPER IS NULL, 
+             IF(T.NAME_OPER IS NULL,
                 CONCAT('Total for country ', T.NAME_COUNTRY, ':'),
                 T.NAME_COUNTRY
                 )
@@ -147,16 +149,35 @@ REP_COMMON:BEGIN
          SUM(T.TOTAL_COMMISSION) AS TOTAL_COMMISSION,
          SUM(T.TOTAL_ITOG) AS TOTAL_ITOG,
          SUM(T.TOTAL_ITOG_DBT) AS TOTAL_ITOG_DBT,
-         SUM(T.TOTAL_ITOG_KRD) AS TOTAL_ITOG_KRD 
+         SUM(T.TOTAL_ITOG_KRD) AS TOTAL_ITOG_KRD
   FROM tt_prepare_report T
   GROUP BY T.NAME_COUNTRY, T.NAME_OPER WITH ROLLUP;
 
+  SELECT 'Country',
+         'Operation type',
+         'Turnover',
+         'Turnover debt',
+         'Turnover credit',
+         'Comission',
+         'Users Turnover',
+         'Users Turnover debt',
+         'Users Turnover credit'
+  UNION ALL
+  SELECT T.NAME_COUNTRY,
+         T.NAME_OPER,
+         TRUNCATE(T.TOTAL, 5) AS TOTAL,
+         TRUNCATE(T.TOTAL_DBT, 5) AS TOTAL_DBT,
+         TRUNCATE(T.TOTAL_KRD, 5) AS TOTAL_KRD,
+         TRUNCATE(T.TOTAL_COMMISSION, 5) AS TOTAL_COMMISSION,
+         TRUNCATE(T.TOTAL_ITOG, 5) AS TOTAL_ITOG,
+         TRUNCATE(T.TOTAL_ITOG_DBT, 5) AS TOTAL_ITOG_DBT,
+         TRUNCATE(T.TOTAL_ITOG_KRD, 5) AS TOTAL_ITOG_KRD
+  FROM tt_report T;
 
 END $$
 
-CALL REP_COMMON(
-'2019-06-01 14:00:00',
-'2019-06-05 14:00:00'
-) $$
+-- CALL REP_COMMON(
+-- '2019-06-01 14:00:00',
+-- '2019-06-05 14:00:00'
+-- ) $$
 
-SELECT  *  FROM tt_report $$
