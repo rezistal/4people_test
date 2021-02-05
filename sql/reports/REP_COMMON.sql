@@ -60,6 +60,7 @@ REP_COMMON:BEGIN
     TOTAL_ITOG_DBT decimal(65,16) DEFAULT NULL,
     TOTAL_ITOG_KRD decimal(65,16) DEFAULT NULL
   );
+  CREATE INDEX IDX_tt_prepare_report ON tt_prepare_report (NAME_COUNTRY, NAME_OPER);
 
   SET done = 0;
   OPEN curpack;
